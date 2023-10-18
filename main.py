@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import threading
 from bs4 import BeautifulSoup
 import yfinance as yf
 from datetime import datetime
@@ -19,14 +20,18 @@ def get_sp500_tickers():
 
 
 
-def get_history(ticker, period_start, period_end, granularity="1d"):
-    df = yf.Ticker(ticker).history(
-        start=period_start, 
-        end=period_end, 
-        interval=granularity, 
-        auto_adjust=True
-    ).reset_index()
-
+def get_history(ticker, period_start, period_end, granularity="1d", tries=0):
+    try:
+        df = yf.Ticker(ticker).history(
+            start=period_start, 
+            end=period_end, 
+            interval=granularity, 
+            auto_adjust=True
+        ).reset_index()
+    except Exception as err:
+        if tries < 5:
+            return get_history(ticker, period_start, period_end, granularity, tries + 1)
+        return pd.DataFrame()
     df = df.rename(columns={
         "Date": "datetime",
         "Open": "open",
@@ -47,9 +52,6 @@ def get_history(ticker, period_start, period_end, granularity="1d"):
 
 
 
-
-
-import threading
 def get_histories(tickers, period_starts, period_ends, granularity="1d"):
     dfs = [None]*len(tickers)
 
@@ -64,14 +66,26 @@ def get_histories(tickers, period_starts, period_ends, granularity="1d"):
     tickers = [tickers[i] for i in range(len(tickers)) if not dfs[i].empty]
     dfs = [df for df in dfs if not df.empty]
     return tickers, dfs
-def get_ticker_dfs(start, end):
-    tickers = get_sp500_tickers()
-    starts = [start] * len(tickers)
-    ends = [end] * len(tickers)
-    tickers, dfs = get_histories(tickers, starts, ends, granularity="1d")
-    return tickers, {ticker:df for  ticker, df in zip(tickers,dfs)}
 
+def get_ticker_dfs(start, end):
+    from utils import load_pickle, save_pickle
+    try:
+        tickers, tickers_dfs = load_pickle("dataset.obj")
+    except Exception as err:
+        tickers = get_sp500_tickers()
+        starts = [start] * len(tickers)
+        ends = [end] * len(tickers)
+        tickers, dfs = get_histories(tickers, starts, ends, granularity="1d")
+        tickers_dfs = {ticker:df for  ticker, df in zip(tickers,dfs)}
+        save_pickle("dataset.obj", (tickers, tickers_dfs))
+    return tickers, tickers_dfs
+
+
+from utils import Alpha
 period_start = datetime(2010,1,1, tzinfo=pytz.utc)
-period_end = datetime(2020,1,1, tzinfo=pytz.utc)
+period_end = datetime.now(pytz.utc)
 tickers, tickers_dfs = get_ticker_dfs(start=period_start, end=period_end)
+alpha = Alpha(insts=tickers, dfs=tickers_dfs, start=period_start, end=period_end)
+alpha.run_simulation()
+
 print(tickers_dfs)
