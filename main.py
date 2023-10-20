@@ -44,8 +44,8 @@ def get_history(ticker, period_start, period_end, granularity="1d", tries=0):
     if df.empty:
         return pd.DataFrame()
     
-    df["datetime"] = df["datetime"].dt.tz_convert(pytz.utc)
     df = df.drop(columns=["Dividends", "Stock Splits"])
+    df["datetime"] = df["datetime"].dt.tz_convert(pytz.utc).dt.normalize()
     df = df.set_index("datetime", drop=True)
     return df
 

@@ -21,8 +21,10 @@ class Alpha():
         self.end = end
 
     def init_portfolio_settings(self, trade_range):
-        portfolio_df = pd.DataFrame(index=trade_range).reset_index().rename(columns={"index": "datetime"})
+        portfolio_df = pd.DataFrame(index=trade_range).reset_index()
+        portfolio_df = portfolio_df.rename(columns={"index": "datetime"})
         portfolio_df.loc[0, "capital"] = 10000
+        print(portfolio_df.index)
         return portfolio_df
     
     def compute_meta_info(self, trade_range):
@@ -32,10 +34,10 @@ class Alpha():
             self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1) #give daily return
             sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(method="bfill")
             eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
-            input(sampled)
-            # print(df)
-            # print(self.dfs[inst])
-            # input('see')
+            self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]['close'] >  0).astype(int) #filter for non-0 price stocks
+            input(self.dfs[inst])
+        return
+            
 
 
     def run_simulation(self):
