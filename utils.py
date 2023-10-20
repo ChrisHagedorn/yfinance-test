@@ -1,5 +1,7 @@
 import lzma
 import pickle
+import pandas as pd
+import numpy as np
 
 def load_pickle(path):
     with lzma.open(path, "rb") as fp:
@@ -18,6 +20,36 @@ class Alpha():
         self.start = start
         self.end = end
 
+    def init_portfolio_settings(self, trade_range):
+        portfolio_df = pd.DataFrame(index=trade_range).reset_index().rename(columns={"index": "datetime"})
+        portfolio_df.loc[0, "capital"] = 10000
+        return portfolio_df
+    
+    def compute_meta_info(self, trade_range):
+        for inst in self.insts:
+            df = pd.DataFrame(index=trade_range)
+            self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
+            self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1) #give daily return
+            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(method="bfill")
+            eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
+            input(sampled)
+            # print(df)
+            # print(self.dfs[inst])
+            # input('see')
+
+
     def run_simulation(self):
         print('running backtest')
-        
+        date_range = pd.date_range(start=self.start, end=self.end, freq="D")
+        self.compute_meta_info(trade_range=date_range)
+        portfolio_df = self.init_portfolio_settings(trade_range=date_range)
+        for i in portfolio_df.index:
+            date = portfolio_df.loc[i, "datetime"]
+            if i != 0:
+                # compute PNL
+                pass
+
+            # compute alpha signals
+            alpha_scores = {}
+
+            # compute positions and other information

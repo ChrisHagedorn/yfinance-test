@@ -87,5 +87,3 @@ period_end = datetime.now(pytz.utc)
 tickers, tickers_dfs = get_ticker_dfs(start=period_start, end=period_end)
 alpha = Alpha(insts=tickers, dfs=tickers_dfs, start=period_start, end=period_end)
 alpha.run_simulation()
-
-print(tickers_dfs)
