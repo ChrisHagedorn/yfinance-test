@@ -47,8 +47,12 @@ class Alpha():
         portfolio_df = self.init_portfolio_settings(trade_range=date_range)
         for i in portfolio_df.index:
             date = portfolio_df.loc[i, "datetime"]
+
+            eligibles = [inst for inst in self.insts if self.dfs[inst].loc[date, "eligible"]]
+            non_eligibles = [inst for inst in self.insts if inst not in eligibles]
+
             if i != 0:
-                # compute PNL
+                
                 pass
 
             # compute alpha signals
