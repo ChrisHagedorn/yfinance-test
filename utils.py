@@ -12,6 +12,22 @@ def save_pickle(path, obj):
     with lzma.open(path, "wb") as fp:
         pickle.dump(obj, fp)
 
+def get_pnl_stats(date, prev, portfolio_df, insts, idx, dfs):
+    day_pnl = 0
+    nominal_ret = 0
+    for inst in insts:
+        units = portfolio_df.loc[idx - 1, "{} units".format(inst)]
+        if units != 0:
+            delta = dfs[inst].loc[date,"close"] - dfs[inst].loc[prev,"close"]
+            inst_pnl = delta * units
+            day_pnl += inst_pnl
+            nominal_ret += portfolio_df.loc[idx - 1, "{} w".format(inst)] * dfs[inst].loc[date, "ret"]
+    capital_ret = nominal_ret * portfolio_df.loc[idx - 1, "leverage"]
+    portfolio_df.loc[idx,"capital"] = portfolio_df.loc[idx - 1,"capital"] + day_pnl
+    portfolio_df.loc[idx,"day_pnl"] = day_pnl
+    portfolio_df.loc[idx,"nominal_ret"] = nominal_ret
+    portfolio_df.loc[idx,"capital_ret"] = capital_ret
+    return day_pnl, capital_ret
 
 class Alpha():
     def __init__(self, insts, dfs, start, end):
@@ -50,10 +66,50 @@ class Alpha():
             non_eligibles = [inst for inst in self.insts if inst not in eligibles]
 
             if i != 0:
-                
-                pass
+                date_prev = portfolio_df.loc[i-1, "datetime"]
+                day_pnl, capital_ret = get_pnl_stats(
+                    date=date,
+                    prev=date_prev,
+                    portfolio_df=portfolio_df,
+                    insts=self.insts,
+                    idx=i,
+                    dfs=self.dfs
+                )
+            
 
             # compute alpha signals
             alpha_scores = {}
+            import random
+            for inst in eligibles:
+                alpha_scores[inst] = random.uniform(0,1)
 
-            # compute positions and other information
+            alpha_scores = {k:v for k,v in sorted(alpha_scores.items(), key=lambda pair:pair[1])}
+            # higher the score the more we want to trade, lower the more we want short
+            # go long top 25%, 
+            alpha_long = list(alpha_scores.keys())[-int(len(eligibles) / 4):]
+            # go short bottom 25%
+            alpha_short = list(alpha_scores.keys())[:int(len(eligibles) / 4)]
+
+
+            for inst in non_eligibles:
+                portfolio_df.loc[i, "{} w".format(inst)] = 0
+                portfolio_df.loc[i, "{} units".format(inst)] = 0
+
+            nominal_tot = 0
+            for inst in eligibles:
+                forecast = 1 if inst in alpha_long else (-1 if inst in alpha_short else 0)
+                dollar_allocation = portfolio_df.loc[i, "capital"] / (len(alpha_long) * len(alpha_short))
+                position = forecast * dollar_allocation / self.dfs[inst].loc[date, "close"]
+                portfolio_df.loc[i, inst + " units"] = position
+                nominal_tot += abs(position * self.dfs[inst].loc[date, "close"])
+
+            for inst in eligibles:
+                units = portfolio_df.loc[i, inst + " units"]
+                nominal_inst = units * self.dfs[inst].loc[date, "close"]
+                inst_w = nominal_inst / nominal_tot
+                portfolio_df.loc[i, inst + " w"] = inst_w
+            
+            portfolio_df.loc[i, "nominal"] = nominal_tot
+            portfolio_df.loc[i, "leverage"] = nominal_tot / portfolio_df.loc[i, "capital"]
+            if i%100 == 0: print(portfolio_df.loc[i])
+        return portfolio_df
