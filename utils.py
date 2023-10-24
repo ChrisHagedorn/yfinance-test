@@ -84,7 +84,6 @@ class Alpha():
                 alpha_scores[inst] = random.uniform(0,1)
 
             alpha_scores = {k:v for k,v in sorted(alpha_scores.items(), key=lambda pair:pair[1])}
-            # higher the score the more we want to trade, lower the more we want short
             # go long top 25%, 
             alpha_long = list(alpha_scores.keys())[-int(len(eligibles) / 4):]
             # go short bottom 25%
