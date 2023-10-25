@@ -77,7 +77,7 @@ class Alpha():
                 )
             
 
-            # compute alpha signals
+            # compute alpha signal
             alpha_scores = {}
             import random
             for inst in eligibles:
